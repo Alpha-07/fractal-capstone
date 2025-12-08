@@ -1,10 +1,11 @@
-# Force correct architecture + a standard Python base
-FROM --platform=linux/amd64 python:3.11-slim
+# Build a backend image targeted for ARM (AKS nodes are arm64)
+# NOTE: platform will be enforced in GitHub Actions build,
+# but this base is a normal Python image.
+FROM python:3.11-slim
 
-# Set work directory
 WORKDIR /app
 
-# Install Python dependencies
+# Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -14,5 +15,5 @@ COPY . .
 # Expose backend port
 EXPOSE 8080
 
-# Start FastAPI app with uvicorn
+# Start FastAPI app
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
