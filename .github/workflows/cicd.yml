@@ -40,31 +40,34 @@ jobs:
         run: |
           az acr login --name ${{ steps.acr.outputs.REGISTRY_NAME }}
 
-      # 5) Build backend image (force linux/amd64)
-      # WHY: Ensure image architecture matches AKS nodes (Ubuntu amd64).
-      - name: Build backend image (amd64)
+      # 5) Build and push backend image (amd64)
+      # WHY: Build for linux/amd64 to match AKS nodes, push with SHA + latest tags
+      - name: Build and push backend image
         run: |
-          docker buildx create --use
+          docker buildx create --use --name multiarch || docker buildx use multiarch
           docker buildx build \
             --platform linux/amd64 \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }} \
-            --load \
+            -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:latest \
+            --push \
             ./backend
 
-      # 6) Build frontend image (force linux/amd64)
-      # WHY: Package Angular app + Nginx reverse proxy, same architecture.
-      - name: Build frontend image (amd64)
+      # 6) Build and push frontend image (amd64)
+      # WHY: Package Angular app + Nginx, same architecture
+      - name: Build and push frontend image
         run: |
           docker buildx build \
             --platform linux/amd64 \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }} \
-            --load \
+            -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:latest \
+            --push \
             ./frontend
 
       # 7) Trivy scan backend image
-      # WHY: Basic container vulnerability scan (security hygiene).
+      # WHY: Security vulnerability scan (pull image first since it's in ACR now)
       - name: Trivy scan backend
         run: |
+          docker pull ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }}
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:latest image \
@@ -75,6 +78,7 @@ jobs:
       # 8) Trivy scan frontend image
       - name: Trivy scan frontend
         run: |
+          docker pull ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }}
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:latest image \
@@ -82,17 +86,7 @@ jobs:
             --severity HIGH,CRITICAL \
             ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }}
 
-      # 9) Push images to ACR
-      # WHY: AKS pulls from ACR, so both images must live there.
-      - name: Push backend image
-        run: |
-          docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }}
-
-      - name: Push frontend image
-        run: |
-          docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }}
-
-      # 10) Set AKS context
+      # 9) Set AKS context
       # WHY: So kubectl commands in this job talk to your AKS cluster.
       - name: Set AKS context
         uses: azure/aks-set-context@v4
@@ -100,7 +94,7 @@ jobs:
           resource-group: ${{ env.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
-      # 11) Apply Kubernetes manifests (idempotent)
+      # 10) Apply Kubernetes manifests (idempotent)
       # WHY: Ensure namespace + services + deployments exist/updated.
       - name: Apply Kubernetes manifests
         run: |
@@ -111,7 +105,7 @@ jobs:
           kubectl apply -f k8s/frontend-deployment-green.yaml
           kubectl apply -f k8s/frontend-service.yaml
 
-      # 12) Update backend deployment with new image and wait for rollout
+      # 11) Update backend deployment with new image and wait for rollout
       - name: Update backend image
         run: |
           kubectl set image deployment/loan-backend-deployment \
@@ -120,7 +114,7 @@ jobs:
           kubectl rollout status deployment/loan-backend-deployment \
             -n fractal-capstone --timeout=180s
 
-      # 13) Blue/Green deployment for frontend
+      # 12) Blue/Green deployment for frontend
       # WHY: Deploy to inactive color first. Only switch traffic if rollout is healthy.
       - name: Blue-Green deploy frontend
         run: |
