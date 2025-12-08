@@ -1,0 +1,39 @@
+<div class="container">
+  <h1>{{ title }}</h1>
+
+  <form (ngSubmit)="onSubmit()" #loanForm="ngForm" class="card">
+    <label>Principal Amount (₹)</label>
+    <input type="number" [(ngModel)]="principal" name="principal" required>
+
+    <label>Annual Interest Rate (%)</label>
+    <input type="number" step="0.1" [(ngModel)]="annualInterestRate" name="annualInterestRate" required>
+
+    <label>Tenure (Months)</label>
+    <input type="number" [(ngModel)]="tenureMonths" name="tenureMonths" required>
+
+    <label>Monthly Salary (₹)</label>
+    <input type="number" [(ngModel)]="salary" name="salary" required>
+
+    <button type="submit" [disabled]="loanForm.invalid || loading">
+      {{ loading ? 'Calculating...' : 'Calculate' }}
+    </button>
+  </form>
+
+  <div class="error" *ngIf="errorMessage">
+    {{ errorMessage }}
+  </div>
+
+  <div class="results" *ngIf="emiResult">
+  <h3>EMI Result</h3>
+  <p><strong>EMI:</strong> ₹ {{ emiResult.emi }}</p>
+  <p><strong>Total Payment:</strong> ₹ {{ emiResult.totalPayment }}</p>
+  <p><strong>Total Interest:</strong> ₹ {{ emiResult.totalInterest }}</p>
+</div>
+
+<div class="results" *ngIf="eligibilityResult">
+  <h3>Eligibility</h3>
+  <p><strong>Status:</strong> {{ eligibilityResult.status }}</p>
+  <p><strong>Ratio:</strong> {{ eligibilityResult.ratio }}</p>
+  <p><strong>Max EMI Allowed:</strong> ₹ {{ eligibilityResult.maxRecommendedEmi }}</p>
+</div>
+</div>

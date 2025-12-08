@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: loan-frontend-svc
+  namespace: fractal-capstone
+  labels:
+    app: loan-frontend
+spec:
+  type: LoadBalancer
+  selector:
+    app: loan-frontend
+    version: blue    # initial live color
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP

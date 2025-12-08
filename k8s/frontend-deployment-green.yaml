@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loan-frontend-green
+  namespace: fractal-capstone
+  labels:
+    app: loan-frontend
+    version: green
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: loan-frontend
+      version: green
+  template:
+    metadata:
+      labels:
+        app: loan-frontend
+        version: green
+    spec:
+      containers:
+        - name: loan-frontend
+          image: fractalcapacr.azurecr.io/loan-frontend:<TAG>
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
