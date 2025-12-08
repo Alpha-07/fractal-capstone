@@ -40,24 +40,24 @@ jobs:
         run: |
           az acr login --name ${{ steps.acr.outputs.REGISTRY_NAME }}
 
-      # 5) Build and push backend image (amd64)
-      # WHY: Build for linux/amd64 to match AKS nodes, push with SHA + latest tags
+      # 5) Build and push backend image (arm64)
+      # WHY: Build for linux/arm64 to match AKS nodes, push with SHA + latest tags
       - name: Build and push backend image
         run: |
           docker buildx create --use --name multiarch || docker buildx use multiarch
           docker buildx build \
-            --platform linux/amd64 \
+            --platform linux/arm64 \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }} \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:latest \
             --push \
             ./backend
 
-      # 6) Build and push frontend image (amd64)
+      # 6) Build and push frontend image (arm64)
       # WHY: Package Angular app + Nginx, same architecture
       - name: Build and push frontend image
         run: |
           docker buildx build \
-            --platform linux/amd64 \
+            --platform linux/arm64 \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }} \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:latest \
             --push \
