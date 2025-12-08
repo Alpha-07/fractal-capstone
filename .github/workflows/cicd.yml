@@ -1,0 +1,150 @@
+name: Fractal Capstone CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY_LOGIN_SERVER: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
+  AKS_RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP }}
+  AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Check out code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2) Azure login using Service Principal
+      # WHY: This gives the runner permissions to ACR + AKS only for this job.
+      - name: Azure login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 3) Extract registry name from login server
+      # e.g. fractalcapacr.azurecr.io -> fractalcapacr
+      - name: Set registry name
+        id: acr
+        run: |
+          REG_NAME=$(echo "${{ env.REGISTRY_LOGIN_SERVER }}" | cut -d'.' -f1)
+          echo "REGISTRY_NAME=$REG_NAME" >> $GITHUB_OUTPUT
+
+      # 4) Login to ACR
+      # WHY: So docker build/push can authenticate to your private registry.
+      - name: ACR login
+        run: |
+          az acr login --name ${{ steps.acr.outputs.REGISTRY_NAME }}
+
+      # 5) Build backend image
+      # WHY: Package FastAPI backend into a container with a unique tag per commit.
+      - name: Build backend image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }} \
+            ./backend
+
+      # 6) Build frontend image
+      # WHY: Package Angular app + Nginx reverse proxy.
+      - name: Build frontend image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }} \
+            ./frontend
+
+      # 7) Trivy scan backend image
+      # WHY: Basic container vulnerability scan (security hygiene).
+      - name: Trivy scan backend
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --exit-code 0 \
+            --severity HIGH,CRITICAL \
+            ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }}
+
+      # 8) Trivy scan frontend image
+      - name: Trivy scan frontend
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --exit-code 0 \
+            --severity HIGH,CRITICAL \
+            ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }}
+
+      # 9) Push images to ACR
+      # WHY: AKS pulls from ACR, so both images must live there.
+      - name: Push backend image
+        run: |
+          docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }}
+
+      - name: Push frontend image
+        run: |
+          docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }}
+
+      # 10) Set AKS context
+      # WHY: So kubectl commands in this job talk to your AKS cluster.
+      - name: Set AKS context
+        uses: azure/aks-set-context@v4
+        with:
+          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      # 11) Apply Kubernetes manifests (idempotent)
+      # WHY: Ensure namespace + services + deployments exist/updated.
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/backend-service.yaml
+          kubectl apply -f k8s/frontend-deployment-blue.yaml
+          kubectl apply -f k8s/frontend-deployment-green.yaml
+          kubectl apply -f k8s/frontend-service.yaml
+
+      # 12) Update backend deployment with new image and wait for rollout
+      - name: Update backend image
+        run: |
+          kubectl set image deployment/loan-backend-deployment \
+            loan-backend=${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }} \
+            -n fractal-capstone
+          kubectl rollout status deployment/loan-backend-deployment \
+            -n fractal-capstone --timeout=180s
+
+      # 13) Blue/Green deployment for frontend
+      # WHY: Deploy to inactive color first. Only switch traffic if rollout is healthy.
+      - name: Blue-Green deploy frontend
+        run: |
+          NAMESPACE=fractal-capstone
+
+          # Get current live color from Service selector
+          CURRENT_COLOR=$(kubectl get svc loan-frontend-svc -n $NAMESPACE -o jsonpath='{.spec.selector.version}')
+          echo "Current live color: $CURRENT_COLOR"
+
+          if [ "$CURRENT_COLOR" = "blue" ]; then
+            NEW_COLOR="green"
+          else
+            NEW_COLOR="blue"
+          fi
+
+          echo "Deploying new version to: $NEW_COLOR"
+
+          # Update image on new color deployment
+          kubectl set image deployment/loan-frontend-$NEW_COLOR \
+            loan-frontend=${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }} \
+            -n $NAMESPACE
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/loan-frontend-$NEW_COLOR \
+            -n $NAMESPACE --timeout=180s
+
+          # If rollout is successful, switch Service selector to NEW_COLOR
+          echo "Switching Service to: $NEW_COLOR"
+          kubectl patch svc loan-frontend-svc -n $NAMESPACE \
+            -p "{\"spec\": {\"selector\": {\"app\": \"loan-frontend\", \"version\": \"$NEW_COLOR\"}}}"
+
+          echo "Blue-Green switch completed."
