@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: loan-frontend
-          image: fractalcapacr.azurecr.io/loan-frontend:<TAG>
+          image: fractalcapacr.azurecr.io/loan-frontend:0.0.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
