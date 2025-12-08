@@ -14,7 +14,7 @@ COPY . .
 RUN npm run build -- --configuration production
 
 # ---- Runtime Stage ----
-FROM nginx:alpine
+FROM nginx:1.27-alpine
 
 # Remove default nginx static content
 RUN rm -rf /usr/share/nginx/html/*
