@@ -40,20 +40,25 @@ jobs:
         run: |
           az acr login --name ${{ steps.acr.outputs.REGISTRY_NAME }}
 
-      # 5) Build backend image
-      # WHY: Package FastAPI backend into a container with a unique tag per commit.
-      - name: Build backend image
+      # 5) Build backend image (force linux/amd64)
+      # WHY: Ensure image architecture matches AKS nodes (Ubuntu amd64).
+      - name: Build backend image (amd64)
         run: |
-          docker build \
+          docker buildx create --use
+          docker buildx build \
+            --platform linux/amd64 \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }} \
+            --load \
             ./backend
 
-      # 6) Build frontend image
-      # WHY: Package Angular app + Nginx reverse proxy.
-      - name: Build frontend image
+      # 6) Build frontend image (force linux/amd64)
+      # WHY: Package Angular app + Nginx reverse proxy, same architecture.
+      - name: Build frontend image (amd64)
         run: |
-          docker build \
+          docker buildx build \
+            --platform linux/amd64 \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }} \
+            --load \
             ./frontend
 
       # 7) Trivy scan backend image
