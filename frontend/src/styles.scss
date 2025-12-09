@@ -1,18 +1,27 @@
 /* You can add global styles to this file, and also import other style files */
 /* theme background colors (minimal & demo-friendly) */
 body.blue {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  color: #ffffff;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    color: #ffffff;
 }
 
 body.green {
-  background: linear-gradient(135deg, #083b12 0%, #10b981 100%);
-  color: #ffffff;
+    background: linear-gradient(135deg, #083b12 0%, #10b981 100%);
+    color: #ffffff;
 }
 
 /* Optional: slightly tint app card for contrast */
 .container,
 .card {
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(2px);
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(2px);
+}
+
+body.green .results,
+body.blue .results {
+    background: rgba(255, 255, 255, 0.06);
+    /* semi-transparent darkened card */
+    color: #ffffff;
+    /* ensure text is white/visible */
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 }
