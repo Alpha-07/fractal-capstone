@@ -20,7 +20,7 @@ FROM nginx:1.27-alpine
 RUN rm -rf /usr/share/nginx/html/*
 
 # Copy compiled Angular app from build stage
-COPY --from=build /app/dist/* /usr/share/nginx/html
+COPY --from=build /app/dist/frontend/browser/ /usr/share/nginx/html/
 
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
