@@ -5,3 +5,4 @@ metadata:
   namespace: fractal-capstone
 data:
   color: "green"
+  index.html: "green"

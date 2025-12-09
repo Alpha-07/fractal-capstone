@@ -22,9 +22,7 @@ spec:
         - name: color-config
           configMap:
             name: frontend-green-config
-            items:
-              - key: color
-                path: index.html
+            optional: false
       containers:
         - name: loan-frontend
           image: fractalcapacr.azurecr.io/loan-frontend:latest
