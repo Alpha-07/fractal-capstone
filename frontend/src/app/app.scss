@@ -50,21 +50,3 @@ button:disabled {
   color: red;
   font-weight: bold;
 }
-
-/* theme background colors (minimal & demo-friendly) */
-body.blue {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  color: #ffffff;
-}
-
-body.green {
-  background: linear-gradient(135deg, #083b12 0%, #10b981 100%);
-  color: #ffffff;
-}
-
-/* Optional: slightly tint app card for contrast */
-.container,
-.card {
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(2px);
-}
