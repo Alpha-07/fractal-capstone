@@ -70,8 +70,11 @@ jobs:
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:latest image \
-            --exit-code 0 \
+            --exit-code 1 \
             --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --quiet \
+            --table-mode summary \
             ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }}
 
       # 8) Trivy scan frontend image
@@ -81,9 +84,13 @@ jobs:
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:latest image \
-            --exit-code 0 \
+            --exit-code 1 \
             --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --quiet \
+            --table-mode summary \
             ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }}
+
 
       # 9) Set AKS context
       # WHY: So kubectl commands in this job talk to your AKS cluster.
