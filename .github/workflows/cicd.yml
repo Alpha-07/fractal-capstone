@@ -1,67 +1,66 @@
 name: Fractal Capstone CI/CD
 
 on:
+  # Uncomment this to run on every push to main
   # push:
   #   branches: [ main ]
   workflow_dispatch:
 
 env:
+  # e.g. "fractalcapacr.azurecr.io"
   REGISTRY_LOGIN_SERVER: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
   AKS_RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP }}
   AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME }}
+  NAMESPACE: fractal-capstone
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Check out code
+      # 1) Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # 2) Azure login using Service Principal
-      # WHY: This gives the runner permissions to ACR + AKS only for this job.
       - name: Azure login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 3) Extract registry name from login server
-      # e.g. fractalcapacr.azurecr.io -> fractalcapacr
-      - name: Set registry name
+      # 3) Extract ACR name (fractalcapacr from fractalcapacr.azurecr.io)
+      - name: Extract ACR name
         id: acr
         run: |
           REG_NAME=$(echo "${{ env.REGISTRY_LOGIN_SERVER }}" | cut -d'.' -f1)
           echo "REGISTRY_NAME=$REG_NAME" >> $GITHUB_OUTPUT
 
-      # 4) Login to ACR
-      # WHY: So docker build/push can authenticate to your private registry.
+      # 4) Login to ACR (uses Docker on GitHub runner)
       - name: ACR login
         run: |
           az acr login --name ${{ steps.acr.outputs.REGISTRY_NAME }}
 
-      # 5) Build and push backend image (arm64)
-      # WHY: Build for linux/arm64 to match AKS nodes, push with SHA + latest tags
+      # 5) Build & push BACKEND (AMD64)
       - name: Build and push backend image
         run: |
-          docker buildx create --use --name multiarch || docker buildx use multiarch
-          docker buildx build \
-            --platform linux/arm64 \
+          docker build \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }} \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:latest \
-            --push \
             ./backend
 
-      # 6) Build and push frontend image (arm64)
-      # WHY: Package Angular app + Nginx, same architecture
+          docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }}
+          docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:latest
+
+      # 6) Build & push FRONTEND (AMD64)
       - name: Build and push frontend image
         run: |
-          docker buildx build \
-            --platform linux/arm64 \
+          docker build \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }} \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:latest \
-            --push \
             ./frontend
+
+          docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }}
+          docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:latest
 
       # 7) Trivy scan backend image
       # WHY: Security vulnerability scan (pull image first since it's in ACR now)
@@ -105,23 +104,23 @@ jobs:
           kubectl apply -f k8s/frontend-deployment-green.yaml
           kubectl apply -f k8s/frontend-service.yaml
 
-      # 11) Update backend deployment with new image and wait for rollout
-      - name: Update backend image
+      # 11) Update backend to new image + wait for rollout
+      - name: Deploy backend
         run: |
           kubectl set image deployment/loan-backend-deployment \
             loan-backend=${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }} \
-            -n fractal-capstone
-          kubectl rollout status deployment/loan-backend-deployment \
-            -n fractal-capstone --timeout=180s
+            -n ${{ env.NAMESPACE }}
 
-      # 12) Blue/Green deployment for frontend
-      # WHY: Deploy to inactive color first. Only switch traffic if rollout is healthy.
+          kubectl rollout status deployment/loan-backend-deployment \
+            -n ${{ env.NAMESPACE }} --timeout=300s
+
+      # 12) Blue/Green rollout for frontend
       - name: Blue-Green deploy frontend
         run: |
-          NAMESPACE=fractal-capstone
+          NS=${{ env.NAMESPACE }}
 
-          # Get current live color from Service selector
-          CURRENT_COLOR=$(kubectl get svc loan-frontend-svc -n $NAMESPACE -o jsonpath='{.spec.selector.version}')
+          # Get current live color
+          CURRENT_COLOR=$(kubectl get svc loan-frontend-svc -n $NS -o jsonpath='{.spec.selector.version}')
           echo "Current live color: $CURRENT_COLOR"
 
           if [ "$CURRENT_COLOR" = "blue" ]; then
@@ -132,18 +131,18 @@ jobs:
 
           echo "Deploying new version to: $NEW_COLOR"
 
-          # Update image on new color deployment
+          # Update image on NEW_COLOR deployment
           kubectl set image deployment/loan-frontend-$NEW_COLOR \
             loan-frontend=${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }} \
-            -n $NAMESPACE
+            -n $NS
 
-          # Wait for rollout to complete
+          # Wait for the rollout
           kubectl rollout status deployment/loan-frontend-$NEW_COLOR \
-            -n $NAMESPACE --timeout=180s
+            -n $NS --timeout=300s
 
-          # If rollout is successful, switch Service selector to NEW_COLOR
+          # Switch service selector to NEW_COLOR
           echo "Switching Service to: $NEW_COLOR"
-          kubectl patch svc loan-frontend-svc -n $NAMESPACE \
+          kubectl patch svc loan-frontend-svc -n $NS \
             -p "{\"spec\": {\"selector\": {\"app\": \"loan-frontend\", \"version\": \"$NEW_COLOR\"}}}"
 
           echo "Blue-Green switch completed."

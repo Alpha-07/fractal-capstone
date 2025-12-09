@@ -1,6 +1,4 @@
-# Build a backend image targeted for ARM (AKS nodes are arm64)
-# NOTE: platform will be enforced in GitHub Actions build,
-# but this base is a normal Python image.
+# Build a backend image
 FROM python:3.11-slim
 
 WORKDIR /app
