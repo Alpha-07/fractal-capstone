@@ -10,7 +10,7 @@ import { LoanService, EmiResponse, EligibilityResponse } from './loan.service';
   templateUrl: './app.html',
   styleUrls: ['./app.scss'],
   standalone: true,
-  imports: [ CommonModule, FormsModule, HttpClientModule ]
+  imports: [CommonModule, FormsModule, HttpClientModule]
 })
 export class AppComponent {
   title = 'Loan EMI & Eligibility App';
@@ -30,6 +30,13 @@ export class AppComponent {
     private ngZone: NgZone,
     private cd: ChangeDetectorRef
   ) { }
+
+  ngOnInit(): void {
+    fetch('/color')
+      .then(r => r.text())
+      .then(color => { document.body.classList.add(color.trim()); })
+      .catch(() => { /* ignore, default styling remains */ });
+  }
 
   onSubmit() {
     this.ngZone.run(() => {

@@ -18,10 +18,21 @@ spec:
         app: loan-frontend
         version: green
     spec:
+      volumes:
+        - name: color-config
+          configMap:
+            name: frontend-green-config
+            items:
+              - key: color
+                path: index.html
       containers:
         - name: loan-frontend
           image: fractalcapacr.azurecr.io/loan-frontend:latest
           imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: color-config
+              mountPath: /usr/share/nginx/html/color
+              readOnly: true
           ports:
             - containerPort: 80
           readinessProbe:
