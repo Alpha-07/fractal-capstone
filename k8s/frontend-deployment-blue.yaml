@@ -26,7 +26,7 @@ spec:
       containers:
         - name: loan-frontend
           image: fractalcapacr.azurecr.io/loan-frontend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           volumeMounts:
             - name: color-config
               mountPath: /usr/share/nginx/html/color

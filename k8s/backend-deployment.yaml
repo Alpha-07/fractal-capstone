@@ -17,9 +17,8 @@ spec:
     spec:
       containers:
         - name: loan-backend
-          # CI/CD will replace <TAG> with actual tag
           image: fractalcapacr.azurecr.io/loan-backend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           readinessProbe:
