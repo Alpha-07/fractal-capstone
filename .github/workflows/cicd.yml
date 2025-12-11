@@ -91,7 +91,6 @@ jobs:
             --table-mode summary \
             ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }}
 
-
       # 9) Set AKS context
       # WHY: So kubectl commands in this job talk to your AKS cluster.
       - name: Set AKS context
@@ -134,22 +133,26 @@ jobs:
 
           if [ "$CURRENT_COLOR" = "blue" ]; then
             NEW_COLOR="green"
+            IDLE="blue"
           else
             NEW_COLOR="blue"
+            IDLE="green"
           fi
 
           echo "Deploying new version to: $NEW_COLOR"
 
-          # Update image on NEW_COLOR deployment
           kubectl set image deployment/loan-frontend-$NEW_COLOR \
             loan-frontend=${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }} \
             -n $NS
 
-          # Wait for the rollout
           kubectl rollout status deployment/loan-frontend-$NEW_COLOR \
             -n $NS --timeout=300s
 
-          # Switch service selector to NEW_COLOR
+          echo "Updating idle deployment ($IDLE) to same image"
+          kubectl set image deployment/loan-frontend-$IDLE \
+            loan-frontend=${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }} \
+            -n $NS
+
           echo "Switching Service to: $NEW_COLOR"
           kubectl patch svc loan-frontend-svc -n $NS \
             -p "{\"spec\": {\"selector\": {\"app\": \"loan-frontend\", \"version\": \"$NEW_COLOR\"}}}"
