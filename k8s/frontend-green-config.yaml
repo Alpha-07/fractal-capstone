@@ -6,3 +6,4 @@ metadata:
 data:
   color: "green"
   index.html: "green"
+  BACKEND_BASE_URL: "http://loan-backend:8080"
