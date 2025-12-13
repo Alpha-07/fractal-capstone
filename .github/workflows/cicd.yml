@@ -66,7 +66,7 @@ jobs:
       - name: Build and push WebApp frontend image
         run: |
           docker build \
-            -f Dockerfile.webapp \
+            -f frontend/Dockerfile.webapp \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:webapp \
             .
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:webapp
