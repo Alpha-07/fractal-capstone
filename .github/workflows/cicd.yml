@@ -61,6 +61,15 @@ jobs:
 
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }}
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:latest
+      
+      # 6.5) Build & push FRONTEND WebApp (for Azure App Service only)
+      - name: Build and push WebApp frontend image
+        run: |
+          docker build \
+            -f Dockerfile.webapp \
+            -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:webapp \
+            .
+          docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:webapp
 
       # 7) Trivy scan backend image
       # WHY: Security vulnerability scan (pull image first since it's in ACR now)
