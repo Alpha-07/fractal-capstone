@@ -62,13 +62,14 @@ jobs:
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }}
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:latest
       
-      # 6.5) Build & push FRONTEND WebApp (for Azure App Service only)
+      # 6.5) Build & push FRONTEND WebApp image (for Azure App Service)
       - name: Build and push WebApp frontend image
         run: |
           docker build \
             -f frontend/Dockerfile.webapp \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:webapp \
-            .
+            frontend
+
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:webapp
 
       # 7) Trivy scan backend image
