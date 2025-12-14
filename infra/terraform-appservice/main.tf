@@ -46,7 +46,7 @@ resource "azurerm_linux_web_app" "frontend" {
     DOCKER_ENABLE_CI                    = "true"
     WEBSITES_PORT                       = "80"
 
-    BACKEND_URL = "https://loan-backend.azurewebsites.net"
+    BACKEND_URL = "loan-backend.azurewebsites.net"
   }
 
   identity {
