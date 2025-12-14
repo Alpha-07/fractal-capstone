@@ -11,10 +11,11 @@ RUN npm run build -- --configuration production
 # ---- Runtime Stage ----
 FROM nginx:1.28-alpine-slim
 
+# Azure App Service expects templates here
+COPY default.conf.template /etc/nginx/templates/default.conf.template
+
 RUN rm -rf /usr/share/nginx/html/*
 
 COPY --from=build /app/dist/frontend/browser/ /usr/share/nginx/html/
-COPY nginx.webapp.conf /etc/nginx/nginx.conf
 
 EXPOSE 80
-CMD ["/bin/sh", "-c", "envsubst < /etc/nginx/nginx.conf > /tmp/nginx.conf && mv /tmp/nginx.conf /etc/nginx/nginx.conf && nginx -g 'daemon off;'"]
