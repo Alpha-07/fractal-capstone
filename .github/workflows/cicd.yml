@@ -35,12 +35,12 @@ jobs:
           REG_NAME=$(echo "${{ env.REGISTRY_LOGIN_SERVER }}" | cut -d'.' -f1)
           echo "REGISTRY_NAME=$REG_NAME" >> $GITHUB_OUTPUT
 
-      # 4) Login to ACR (uses Docker on GitHub runner)
+      # 4) Login to ACR
       - name: ACR login
         run: |
           az acr login --name ${{ steps.acr.outputs.REGISTRY_NAME }}
 
-      # 5) Build & push BACKEND (AMD64)
+      # 5) Build & push BACKEND image (used by AKS)
       - name: Build and push backend image
         run: |
           docker build \
@@ -51,9 +51,10 @@ jobs:
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:${{ github.sha }}
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-backend:latest
 
-      # 6) Build & push FRONTEND (AMD64)
-      - name: Build and push frontend image
+      # 6) Build & push FRONTEND images (AKS + WebApp)
+      - name: Build and push frontend images
         run: |
+          # AKS frontend image
           docker build \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }} \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:latest \
@@ -61,10 +62,8 @@ jobs:
 
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:${{ github.sha }}
           docker push ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:latest
-      
-      # 6.5) Build & push FRONTEND WebApp image (for Azure App Service)
-      - name: Build and push WebApp frontend image
-        run: |
+
+          # App Service (WebApp) frontend image
           docker build \
             -f frontend/Dockerfile.webapp \
             -t ${{ env.REGISTRY_LOGIN_SERVER }}/loan-frontend:webapp \
@@ -122,7 +121,7 @@ jobs:
           kubectl apply -f k8s/frontend-deployment-blue.yaml
           kubectl apply -f k8s/frontend-deployment-green.yaml
 
-      # 11) Update backend to new image + wait for rollout
+      # 11) Deploy backend to AKS
       - name: Deploy backend
         run: |
           kubectl set image deployment/loan-backend-deployment \
@@ -132,7 +131,7 @@ jobs:
           kubectl rollout status deployment/loan-backend-deployment \
             -n ${{ env.NAMESPACE }} --timeout=300s
 
-      # 12) Blue/Green rollout for frontend
+      # 12) Blue-Green deploy frontend (AKS)
       - name: Blue-Green deploy frontend
         run: |
           NS=${{ env.NAMESPACE }}
