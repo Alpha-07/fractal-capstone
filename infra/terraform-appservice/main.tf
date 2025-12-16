@@ -41,13 +41,14 @@ resource "azurerm_linux_web_app" "frontend" {
 
   app_settings = {
     WEBSITES_PORT = "80"
+    BACKEND_URL = "loan-backend.azurewebsites.net"
+    COLOR       = "blue"
   }
 
   identity {
     type = "SystemAssigned"
   }
 }
-
 
 resource "azurerm_linux_web_app" "backend" {
   name                = "loan-backend"

@@ -11,13 +11,11 @@ RUN npm run build -- --configuration production
 # ---------- Runtime Stage ----------
 FROM nginx:1.28-alpine-slim
 
-# Clear default html
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy built frontend
 COPY --from=build /app/dist/frontend/browser/ /usr/share/nginx/html/
 
-# Copy nginx template (NOT nginx.conf)
+# IMPORTANT: template, not nginx.conf
 COPY default.conf.template /etc/nginx/templates/default.conf.template
 
 EXPOSE 80
