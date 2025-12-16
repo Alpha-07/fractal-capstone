@@ -32,6 +32,7 @@ resource "azurerm_linux_web_app" "frontend" {
 
   site_config {
     always_on = true
+    container_registry_use_managed_identity = true
 
     application_stack {
       docker_image_name   = "loan-frontend:webapp"
@@ -41,8 +42,8 @@ resource "azurerm_linux_web_app" "frontend" {
 
   app_settings = {
     WEBSITES_PORT = "80"
-    BACKEND_URL = "loan-backend.azurewebsites.net"
-    COLOR       = "blue"
+    COLOR         = "green"
+    BACKEND_URL = "https://loan-backend.azurewebsites.net"
   }
 
   identity {
@@ -72,10 +73,36 @@ resource "azurerm_linux_web_app" "backend" {
   app_settings = {
     WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
     WEBSITES_PORT                       = "8080"
-    COLOR                               = "blue"
   }
 
   identity {
     type = "SystemAssigned"
   }
 }
+
+resource "azurerm_linux_web_app_slot" "frontend_staging" {
+  name           = "staging"
+  app_service_id = azurerm_linux_web_app.frontend.id
+
+  site_config {
+    always_on = true
+
+    application_stack {
+      docker_image_name   = "loan-frontend:webapp"
+      docker_registry_url = "https://${azurerm_container_registry.acr.login_server}"
+    }
+  }
+
+  app_settings = {
+    COLOR = "blue"
+  }
+}
+
+resource "azurerm_linux_web_app_slot_configuration_names" "frontend_slot_settings" {
+  app_service_id = azurerm_linux_web_app.frontend.id
+
+  app_setting_names = [
+    "COLOR"
+  ]
+}
+
