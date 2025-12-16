@@ -42,8 +42,8 @@ resource "azurerm_linux_web_app" "frontend" {
 
   app_settings = {
     WEBSITES_PORT = "80"
-    COLOR         = "green"
-    BACKEND_URL = "https://loan-backend.azurewebsites.net"
+    COLOR         = "green"   # production
+    BACKEND_URL   = "https://loan-backend.azurewebsites.net"
   }
 
   identity {
@@ -94,15 +94,6 @@ resource "azurerm_linux_web_app_slot" "frontend_staging" {
   }
 
   app_settings = {
-    COLOR = "blue"
+    COLOR = "blue"   # slot-only by definition
   }
 }
-
-resource "azurerm_linux_web_app_slot_configuration_names" "frontend_slot_settings" {
-  app_service_id = azurerm_linux_web_app.frontend.id
-
-  app_setting_names = [
-    "COLOR"
-  ]
-}
-
